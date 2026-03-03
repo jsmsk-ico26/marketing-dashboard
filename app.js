@@ -326,25 +326,41 @@ function mergeDataByDate() {
 
     // GA4データ
     AppState.data.ga4.forEach(row => {
-        const date = row['日付'];
-        if (!dateMap[date]) dateMap[date] = { date };
-        dateMap[date].sessions = parseInt(row['セッション']) || 0;
-        dateMap[date].users = parseInt(row['ユーザー']) || 0;
-        dateMap[date].engagementRate = parseFloat(row['エンゲージメント率']) || 0;
-        dateMap[date].conversions = parseInt(row['キーイベント（成約）']) || 0;
-        dateMap[date].cvr = parseFloat(row['CVR(%)']) || 0;
+        // ヘッダー名（日本語/英語）の柔軟な解決
+        const date = row['日付'] || row['Date'] || row['date'];
+        if (!date) return;
+
+        const dKey = date.replace(/-/g, '/'); // 書式を統一
+        if (!dateMap[dKey]) dateMap[dKey] = { date: dKey };
+
+        dateMap[dKey].sessions = parseInt(row['セッション'] || row['Sessions'] || row['sessions']) || 0;
+        dateMap[dKey].users = parseInt(row['ユーザー'] || row['Total users'] || row['activeUsers']) || 0;
+        dateMap[dKey].engagementRate = parseFloat(row['エンゲージメント率'] || row['Engagement rate'] || row['engagementRate']) || 0;
+        dateMap[dKey].conversions = parseInt(row['キーイベント（成約）'] || row['Conversions'] || row['conversions'] || row['events']) || 0;
+        dateMap[dKey].cvr = parseFloat(row['CVR(%)'] || row['Session conversion rate'] || row['cvr']) || 0;
+
+        // GA4連携時の広告費（Google Ads）があれば自動セット
+        const adCostFromGA4 = parseInt(row['advertiserAdCost'] || row['Google Ads cost'] || 0);
+        if (adCostFromGA4 > 0) {
+            dateMap[dKey].adCost = adCostFromGA4;
+            dateMap[dKey].medium = 'Google Ads (Auto)';
+        }
     });
 
     // 広告費データ
     AppState.data.adCost.forEach(row => {
-        const date = row['日付'];
-        if (!dateMap[date]) dateMap[date] = { date };
-        dateMap[date].medium = row['媒体'] || '';
-        dateMap[date].adCost = parseInt(row['費用(円)']) || 0;
-        dateMap[date].impressions = parseInt(row['表示回数']) || 0;
-        dateMap[date].clicks = parseInt(row['クリック数']) || 0;
-        dateMap[date].ctr = parseFloat(row['CTR(%)']) || 0;
-        dateMap[date].cpc = parseInt(row['CPC(円)']) || 0;
+        const date = row['日付'] || row['Date'] || row['date'];
+        if (!date) return;
+
+        const dKey = date.replace(/-/g, '/');
+        if (!dateMap[dKey]) dateMap[dKey] = { date: dKey };
+
+        dateMap[dKey].medium = row['媒体'] || row['Medium'] || row['medium'] || '';
+        dateMap[dKey].adCost = parseInt(row['費用(円)'] || row['Cost'] || row['cost']) || 0;
+        dateMap[dKey].impressions = parseInt(row['表示回数'] || row['Impressions'] || row['impressions']) || 0;
+        dateMap[dKey].clicks = parseInt(row['クリック数'] || row['Clicks'] || row['clicks']) || 0;
+        dateMap[dKey].ctr = parseFloat(row['CTR(%)'] || row['CTR'] || row['ctr']) || 0;
+        dateMap[dKey].cpc = parseInt(row['CPC(円)'] || row['CPC'] || row['cpc']) || 0;
     });
 
     // 施策ログ
