@@ -156,8 +156,8 @@ async function exportJSON() {
     const insights = generateInsights();
 
     // 期間の算出
-    const start = new Date(AppState.dateFilter.startDate);
-    const end = new Date(AppState.dateFilter.endDate);
+    const start = new Date(AppState.dateFilter.startDate.replace(/\//g, '-'));
+    const end = new Date(AppState.dateFilter.endDate.replace(/\//g, '-'));
 
     // 前月期間
     const lastMonthStart = new Date(start);
@@ -172,12 +172,18 @@ async function exportJSON() {
     lastYearEnd.setFullYear(lastYearEnd.getFullYear() - 1);
 
     const filterByDate = (s, e) => AppState.mergedData.filter(d => {
-        const dt = new Date(d.date);
+        const dt = new Date(d.date.replace(/\//g, '-'));
         return dt >= s && dt <= e;
     });
 
     const lastMonthData = filterByDate(lastMonthStart, lastMonthEnd);
     const lastYearData = filterByDate(lastYearStart, lastYearEnd);
+
+    // HTMLタグ除去ユーティリティ
+    const stripHtml = (html) => {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        return doc.body.textContent || "";
+    };
 
     const report = {
         meta: {
@@ -191,7 +197,12 @@ async function exportJSON() {
             }
         },
         summary: currentMetrics,
-        analysis: insights.map(i => ({ title: i.title.replace(/<[^>]*>?/gm, ''), content: i.content.replace(/<[^>]*>?/gm, '') })),
+        // AI分析レポートを含める
+        analysis: insights.map(i => ({
+            type: i.type,
+            title: stripHtml(i.title),
+            content: stripHtml(i.content).replace(/\s+/g, ' ').trim()
+        })),
         comparisons: {
             lastMonth: {
                 period: { start: lastMonthStart.toLocaleDateString(), end: lastMonthEnd.toLocaleDateString() },
