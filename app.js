@@ -557,53 +557,91 @@ function calculatePeriodDiff(metricsA, metricsB) {
 
 function generateInsights() {
     const data = AppState.filteredData;
-    if (data.length < 3) return [];
+    if (data.length < 2) return [];
 
     const insights = [];
+    const safeNum = (val) => (typeof val === 'number' && !isNaN(val)) ? val : 0;
 
-    // 施策実施前後のデータを比較
-    const measureDates = AppState.data.measures.map(m => m['実施日']);
+    // 1. 期間内の施策を特定
+    const start = new Date(AppState.dateFilter.startDate);
+    const end = new Date(AppState.dateFilter.endDate);
+    const measureInRange = [...AppState.data.measures].filter(m => {
+        const d = new Date(m['実施日']);
+        return d >= start && d <= end;
+    }).sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
 
-    if (measureDates.length > 0) {
-        // LP改善施策の前後比較（3/3に実施）
-        const beforeLP = data.filter(d => new Date(d.date) < new Date('2026/03/03'));
-        const afterLP = data.filter(d => new Date(d.date) >= new Date('2026/03/04'));
+    if (measureInRange) {
+        // --- 施策ベースの分析 ---
+        const mDate = new Date(measureInRange['実施日']);
+        const before = data.filter(d => new Date(d.date) < mDate);
+        const after = data.filter(d => new Date(d.date) >= mDate); // 実施日当日を含む
 
-        if (beforeLP.length > 0 && afterLP.length > 0) {
-            const avgCVRBefore = beforeLP.reduce((s, d) => s + d.cvr, 0) / beforeLP.length;
-            const avgCVRAfter = afterLP.reduce((s, d) => s + d.cvr, 0) / afterLP.length;
-            const cvrChange = ((avgCVRAfter - avgCVRBefore) / avgCVRBefore * 100).toFixed(1);
+        if (before.length > 0 && after.length > 0) {
+            const mBefore = calculatePeriodMetrics(before);
+            const mAfter = calculatePeriodMetrics(after);
+            const diff = calculatePeriodDiff(mBefore, mAfter);
 
-            const avgCPABefore = beforeLP.reduce((s, d) => s + d.cpa, 0) / beforeLP.length;
-            const avgCPAAfter = afterLP.reduce((s, d) => s + d.cpa, 0) / afterLP.length;
-            const cpaChange = ((avgCPAAfter - avgCPABefore) / avgCPABefore * 100).toFixed(1);
-
-            const avgEngBefore = beforeLP.reduce((s, d) => s + d.engagementRate, 0) / beforeLP.length;
-            const avgEngAfter = afterLP.reduce((s, d) => s + d.engagementRate, 0) / afterLP.length;
-            const engChange = ((avgEngAfter - avgEngBefore) / avgEngBefore * 100).toFixed(1);
-
-            // Fact
             insights.push({
                 type: 'fact',
-                title: '📊 事実（Fact）',
-                content: `LP改善施策（ボタン色変更）実施後、<strong>CVRが平均${avgCVRBefore.toFixed(2)}%から${avgCVRAfter.toFixed(2)}%へ、WoW ${cvrChange > 0 ? '+' : ''}${cvrChange}%</strong>の大幅な改善を記録。同時にエンゲージメント率も${avgEngBefore.toFixed(1)}%から${avgEngAfter.toFixed(1)}%へ<strong>WoW ${engChange > 0 ? '+' : ''}${engChange}%上昇</strong>しました。CPAは${avgCPABefore.toFixed(0)}円から${avgCPAAfter.toFixed(0)}円へ<strong>WoW ${cpaChange}%改善</strong>しています。`
+                title: '📊 施策分析 (Fact)',
+                content: `実施施策: <strong>${measureInRange['対象']}</strong> (${measureInRange['実施日']})<br>
+                実施前後の比較で、CVRは${mBefore.avgCVR}%から${mAfter.avgCVR}%へ(<strong>${diff.cvr > 0 ? '+' : ''}${diff.cvr}%</strong>)、
+                CPAは¥${mBefore.avgCPA.toLocaleString()}から¥${mAfter.avgCPA.toLocaleString()}へ(<strong>${diff.cpa}%</strong>)変化しました。`
             });
 
-            // Interpretation
             insights.push({
                 type: 'interpretation',
-                title: '🔍 解釈（Interpretation）',
-                content: `ボタン色をグレーからオレンジへ変更したことで、<strong>CTA（行動喚起）の視認性が向上</strong>し、ユーザーのクリック心理的ハードルが低下したと考えられます。エンゲージメント率の同時上昇は、ボタンの目立つ配色がページ全体の滞在時間延長にも寄与している可能性を示唆しています。また、3/4からの広告予算増額（1.5万→2万円）により流入が増加しましたが、CVRも維持・向上しており、<strong>LP改善の効果が広告効率の向上にも波及</strong>しています。`
-            });
-
-            // Action
-            insights.push({
-                type: 'action',
-                title: '🎯 次の一手（Action）',
-                content: `<strong>① 継続：</strong>オレンジボタンのデザインは効果実証済みのため継続。今後1-2週間のデータで効果の持続性を確認。<br><strong>② 拡大：</strong>広告予算2万円/日は費用対効果が良いため、段階的に2.5万円→3万円へ増額を検討（ROAS悪化がないか監視）。<br><strong>③ テスト：</strong>次のLP改善施策として、ファーストビューのキャッチコピーA/Bテストを推奨。「無料相談」等のベネフィット訴求を検証。`
+                title: '🔍 施策の解釈 (Interpretation)',
+                content: `${measureInRange['対象']}における「${measureInRange['変更内容']}」は、${diff.cvr > 0 ? '成約率の向上に寄与しており、当初の狙い通り' : '成約率への影響は限定的であり、ユーザーへの訴求力が不足している'}と考えられます。
+                広告費のWoW ${diff.totalCost}%に対し、獲得数WoW ${diff.conversions}%となっており、${diff.cpa < 0 ? '獲得効率は改善' : '獲得効率は低下'}傾向にあります。`
             });
         }
     }
+
+    // 2. 期間比較分析 (PoP)
+    const periodDays = data.length;
+    const prevStart = new Date(start);
+    prevStart.setDate(prevStart.getDate() - periodDays);
+    const prevEnd = new Date(start);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+
+    const prevData = AppState.mergedData.filter(d => {
+        const dt = new Date(d.date);
+        return dt >= prevStart && dt <= prevEnd;
+    });
+
+    if (prevData.length > 0) {
+        const mCurr = calculatePeriodMetrics(data);
+        const mPrev = calculatePeriodMetrics(prevData);
+        const diff = calculatePeriodDiff(mPrev, mCurr);
+
+        insights.push({
+            type: 'fact',
+            title: `📈 前期間比分析 (${periodDays}日前比)`,
+            content: `現在の期間 (${periodDays}日間) とその前期間を比較すると、セッション数は <strong>${diff.sessions > 0 ? '+' : ''}${diff.sessions}%</strong>、
+            CVRは <strong>${diff.cvr > 0 ? '+' : ''}${diff.cvr}%</strong> となりました。
+            結果として、1日平均の成約数は ${mPrev.avgConversionsPerDay}件から${mCurr.avgConversionsPerDay}件へ推移しています。`
+        });
+
+        const isGood = diff.cvr > 0 && diff.cpa < 0;
+        insights.push({
+            type: 'interpretation',
+            title: '💡 状況の解釈',
+            content: isGood ?
+                `全体として<strong>非常に良好な推移</strong>です。流入数と質のバランスが最適化されており、獲得効率が高い水準で安定しています。` :
+                `一部の指標において改善の余地があります。${diff.cvr < 0 ? '流入は増えていますが成約率が低下しており、ターゲット層のズレが発生している可能性があります。' : '効率は維持されていますが、さらなるスケールには流入数の底上げが必要です。'}`
+        });
+    }
+
+    // 3. Action (常に生成)
+    const mNow = calculatePeriodMetrics(data);
+    insights.push({
+        type: 'action',
+        title: '🎯 次の一手 (Action)',
+        content: `<strong>① 運用:</strong> ${mNow && mNow.avgROAS > 100 ? 'ROASが維持されているため、広告予算の維持または微増(5-10%)を推奨。' : 'ROASが目標を下回っているため、低パフォーマンスな媒体の予算削減を検討。'}<br>
+        <strong>② 改善:</strong> 直近の数値変動を考慮し、LPの特定要素（見出し、フォームの使いやすさ等）の微調整による検証を継続。<br>
+        <strong>③ 計測:</strong> 獲得の質を維持するため、特定媒体からの流入が成約に繋がっているかを詳細に監視。`
+    });
 
     return insights;
 }
@@ -1535,19 +1573,34 @@ function renderAnalysisTab(insights) {
 
 function renderMeasureEffectSummary() {
     const data = AppState.filteredData;
-    const measures = AppState.data.measures;
-    if (data.length < 3 || measures.length === 0) return '<p style="text-align:center;color:#64748b;padding:20px;">分析対象の施策データが不足しています。</p>';
+    const allMeasures = AppState.data.measures;
+    if (data.length < 2) return '<p style="text-align:center;color:#64748b;padding:20px;">分析対象のデータが不足しています。</p>';
 
-    // 最新の施策日を取得
-    const latestMeasure = [...measures].sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
-    const measureDate = new Date(latestMeasure['実施日']);
+    // 期間内の施策を特定、なければ直近の過去施策を1つ
+    const start = new Date(AppState.dateFilter.startDate);
+    const end = new Date(AppState.dateFilter.endDate);
 
-    // 施策前後のデータを抽出（施策当日を除く前後数日間）
-    const beforeData = data.filter(d => new Date(d.date) < measureDate);
-    const afterData = data.filter(d => new Date(d.date) > measureDate);
+    let targetMeasure = [...allMeasures].filter(m => {
+        const d = new Date(m['実施日']);
+        return d >= start && d <= end;
+    }).sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
+
+    // 期間内に施策がない場合は、期間前の直近の施策を探す
+    if (!targetMeasure) {
+        targetMeasure = [...allMeasures].filter(m => new Date(m['実施日']) <= end)
+            .sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
+    }
+
+    if (!targetMeasure) return '<p style="text-align:center;color:#64748b;padding:20px;">適用可能な施策データが見つかりません。</p>';
+
+    const measureDate = new Date(targetMeasure['実施日']);
+
+    // 施策前後のデータ抽出（AppState.mergedData全域から探す）
+    const beforeData = AppState.mergedData.filter(d => new Date(d.date) < measureDate);
+    const afterData = AppState.mergedData.filter(d => new Date(d.date) >= measureDate); // 当日含む
 
     if (beforeData.length === 0 || afterData.length === 0) {
-        return `<p style="text-align:center;color:#64748b;padding:20px;">施策日(${latestMeasure['実施日']})の前後データが不足しているため比較できません。</p>`;
+        return `<p style="text-align:center;color:#64748b;padding:20px;">施策日(${targetMeasure['実施日']})の前後データが不足しているため比較できません。</p>`;
     }
 
     const metrics = [
