@@ -370,6 +370,28 @@ body {
     box-shadow: 0 4px 15px rgba(5, 150, 105, 0.5);
 }
 
+.btn-json {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    box-shadow: 0 2px 10px rgba(79, 70, 229, 0.3);
+}
+
+.btn-json:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.5);
+}
+
 .btn-logout {
     background: transparent;
     border: 1px solid rgba(239, 68, 68, 0.3);

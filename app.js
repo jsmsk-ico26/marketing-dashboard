@@ -140,6 +140,92 @@ function extractSpreadsheetId(urlOrId) {
     return urlOrId.trim();
 }
 
+// ===================================
+// JSONレポート出力
+// ===================================
+
+async function exportJSON() {
+    if (AppState.filteredData.length === 0) {
+        alert('出力対象のデータがありません。');
+        return;
+    }
+
+    const client = getActiveClient();
+    const currentData = AppState.filteredData;
+    const currentMetrics = calculatePeriodMetrics(currentData);
+    const insights = generateInsights();
+
+    // 期間の算出
+    const start = new Date(AppState.dateFilter.startDate);
+    const end = new Date(AppState.dateFilter.endDate);
+
+    // 前月期間
+    const lastMonthStart = new Date(start);
+    lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+    const lastMonthEnd = new Date(end);
+    lastMonthEnd.setMonth(lastMonthEnd.getMonth() - 1);
+
+    // 前年同月期間
+    const lastYearStart = new Date(start);
+    lastYearStart.setFullYear(lastYearStart.getFullYear() - 1);
+    const lastYearEnd = new Date(end);
+    lastYearEnd.setFullYear(lastYearEnd.getFullYear() - 1);
+
+    const filterByDate = (s, e) => AppState.mergedData.filter(d => {
+        const dt = new Date(d.date);
+        return dt >= s && dt <= e;
+    });
+
+    const lastMonthData = filterByDate(lastMonthStart, lastMonthEnd);
+    const lastYearData = filterByDate(lastYearStart, lastYearEnd);
+
+    const report = {
+        meta: {
+            exportDate: new Date().toISOString(),
+            clientName: client?.name || 'Unknown',
+            siteName: client?.siteName || '',
+            period: {
+                start: AppState.dateFilter.startDate,
+                end: AppState.dateFilter.endDate,
+                days: currentData.length
+            }
+        },
+        summary: currentMetrics,
+        analysis: insights.map(i => ({ title: i.title.replace(/<[^>]*>?/gm, ''), content: i.content.replace(/<[^>]*>?/gm, '') })),
+        comparisons: {
+            lastMonth: {
+                period: { start: lastMonthStart.toLocaleDateString(), end: lastMonthEnd.toLocaleDateString() },
+                metrics: calculatePeriodMetrics(lastMonthData),
+                diff: calculatePeriodDiff(currentMetrics, calculatePeriodMetrics(lastMonthData))
+            },
+            lastYearSameMonth: {
+                period: { start: lastYearStart.toLocaleDateString(), end: lastYearEnd.toLocaleDateString() },
+                metrics: calculatePeriodMetrics(lastYearData),
+                diff: calculatePeriodDiff(currentMetrics, calculatePeriodMetrics(lastYearData))
+            }
+        },
+        details: currentData.map(d => ({
+            date: d.date,
+            sessions: d.sessions,
+            conversions: d.conversions,
+            cvr: d.cvr,
+            cpa: d.cpa,
+            adCost: d.adCost,
+            measures: d.measures || []
+        }))
+    };
+
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Report_${client?.name || 'Client'}_${AppState.dateFilter.startDate.replace(/\//g, '')}-${AppState.dateFilter.endDate.replace(/\//g, '')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 /**
  * 新規顧客を登録
  */
@@ -1259,6 +1345,10 @@ function renderHeader() {
                 <button class="btn-pdf" onclick="generatePDF()" id="btn-pdf-export">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                     PDF
+                </button>
+                <button class="btn-json" onclick="exportJSON()" id="btn-json-export" title="JSON形式でデータをエクスポート">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"></polyline><line x1="12" y1="12" x2="12" y2="21"></line><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path><polyline points="16 16 12 12 8 16"></polyline></svg>
+                    JSON
                 </button>
                 <div class="user-avatar" title="${AppState.user?.name || ''}">${AppState.user?.avatar || '?'}</div>
                 <button class="btn-logout" onclick="handleLogout()" id="btn-logout">ログアウト</button>
