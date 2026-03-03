@@ -185,6 +185,8 @@ async function exportJSON() {
         return doc.body.textContent || "";
     };
 
+    const measureEffect = getMeasureEffectData();
+
     const report = {
         meta: {
             exportDate: new Date().toISOString(),
@@ -197,12 +199,14 @@ async function exportJSON() {
             }
         },
         summary: currentMetrics,
-        // AI分析レポートを含める
+        // AI分析レポート
         analysis: insights.map(i => ({
             type: i.type,
             title: stripHtml(i.title),
             content: stripHtml(i.content).replace(/\s+/g, ' ').trim()
         })),
+        // 施策効果サマリー
+        measureEffect: measureEffect,
         comparisons: {
             lastMonth: {
                 period: { start: lastMonthStart.toLocaleDateString(), end: lastMonthEnd.toLocaleDateString() },
@@ -1595,63 +1599,72 @@ function renderAnalysisTab(insights) {
     `;
 }
 
-function renderMeasureEffectSummary() {
+/**
+ * 施策効果分析のためのデータを集計
+ */
+function getMeasureEffectData() {
     const data = AppState.filteredData;
     const allMeasures = AppState.data.measures;
-    if (data.length < 2) return '<p style="text-align:center;color:#64748b;padding:20px;">分析対象のデータが不足しています。</p>';
+    if (data.length < 2) return null;
 
-    // 期間内の施策を特定、なければ直近の過去施策を1つ
-    const start = new Date(AppState.dateFilter.startDate);
-    const end = new Date(AppState.dateFilter.endDate);
+    const start = new Date(AppState.dateFilter.startDate.replace(/\//g, '-'));
+    const end = new Date(AppState.dateFilter.endDate.replace(/\//g, '-'));
 
     let targetMeasure = [...allMeasures].filter(m => {
-        const d = new Date(m['実施日']);
+        const d = new Date(m['実施日'].replace(/\//g, '-'));
         return d >= start && d <= end;
     }).sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
 
-    // 期間内に施策がない場合は、期間前の直近の施策を探す
     if (!targetMeasure) {
-        targetMeasure = [...allMeasures].filter(m => new Date(m['実施日']) <= end)
+        targetMeasure = [...allMeasures].filter(m => new Date(m['実施日'].replace(/\//g, '-')) <= end)
             .sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
     }
 
-    if (!targetMeasure) return '<p style="text-align:center;color:#64748b;padding:20px;">適用可能な施策データが見つかりません。</p>';
+    if (!targetMeasure) return null;
 
-    const measureDate = new Date(targetMeasure['実施日']);
+    const measureDate = new Date(targetMeasure['実施日'].replace(/\//g, '-'));
+    const beforeData = AppState.mergedData.filter(d => new Date(d.date.replace(/\//g, '-')) < measureDate);
+    const afterData = AppState.mergedData.filter(d => new Date(d.date.replace(/\//g, '-')) >= measureDate);
 
-    // 施策前後のデータ抽出（AppState.mergedData全域から探す）
-    const beforeData = AppState.mergedData.filter(d => new Date(d.date) < measureDate);
-    const afterData = AppState.mergedData.filter(d => new Date(d.date) >= measureDate); // 当日含む
+    if (beforeData.length === 0 || afterData.length === 0) return null;
 
-    if (beforeData.length === 0 || afterData.length === 0) {
-        return `<p style="text-align:center;color:#64748b;padding:20px;">施策日(${targetMeasure['実施日']})の前後データが不足しているため比較できません。</p>`;
-    }
-
-    const metrics = [
-        {
-            label: 'CVR（成約率）',
-            before: (beforeData.reduce((s, d) => s + d.cvr, 0) / beforeData.length).toFixed(2) + '%',
-            after: (afterData.reduce((s, d) => s + d.cvr, 0) / afterData.length).toFixed(2) + '%',
-            change: (((afterData.reduce((s, d) => s + d.cvr, 0) / afterData.length) - (beforeData.reduce((s, d) => s + d.cvr, 0) / beforeData.length)) / (beforeData.reduce((s, d) => s + d.cvr, 0) / beforeData.length) * 100).toFixed(1),
-            isInverse: false
+    return {
+        measure: {
+            target: targetMeasure['対象'],
+            date: targetMeasure['実施日'],
+            change: targetMeasure['変更内容']
         },
-        {
-            label: 'CPA（顧客獲得単価）',
-            before: '¥' + Math.round(beforeData.reduce((s, d) => s + d.cpa, 0) / beforeData.length).toLocaleString(),
-            after: '¥' + Math.round(afterData.reduce((s, d) => s + d.cpa, 0) / afterData.length).toLocaleString(),
-            change: (((afterData.reduce((s, d) => s + d.cpa, 0) / afterData.length) - (beforeData.reduce((s, d) => s + d.cpa, 0) / beforeData.length)) / (beforeData.reduce((s, d) => s + d.cpa, 0) / beforeData.length) * 100).toFixed(1),
-            isInverse: true
-        },
-        {
-            label: '成約数 (1日平均)',
-            before: (beforeData.reduce((s, d) => s + d.conversions, 0) / beforeData.length).toFixed(1),
-            after: (afterData.reduce((s, d) => s + d.conversions, 0) / afterData.length).toFixed(1),
-            change: (((afterData.reduce((s, d) => s + d.conversions, 0) / afterData.length) - (beforeData.reduce((s, d) => s + d.conversions, 0) / beforeData.length)) / (beforeData.reduce((s, d) => s + d.conversions, 0) / beforeData.length) * 100).toFixed(1),
-            isInverse: false
-        }
-    ];
+        metrics: [
+            {
+                label: 'CVR（成約率）',
+                before: (beforeData.reduce((s, d) => s + d.cvr, 0) / beforeData.length).toFixed(2) + '%',
+                after: (afterData.reduce((s, d) => s + d.cvr, 0) / afterData.length).toFixed(2) + '%',
+                change: (((afterData.reduce((s, d) => s + d.cvr, 0) / afterData.length) - (beforeData.reduce((s, d) => s + d.cvr, 0) / beforeData.length)) / (beforeData.reduce((s, d) => s + d.cvr, 0) / beforeData.length) * 100).toFixed(1),
+                isInverse: false
+            },
+            {
+                label: 'CPA（顧客獲得単価）',
+                before: '¥' + Math.round(beforeData.reduce((s, d) => s + d.cpa, 0) / beforeData.length).toLocaleString(),
+                after: '¥' + Math.round(afterData.reduce((s, d) => s + d.cpa, 0) / afterData.length).toLocaleString(),
+                change: (((afterData.reduce((s, d) => s + d.cpa, 0) / afterData.length) - (beforeData.reduce((s, d) => s + d.cpa, 0) / beforeData.length)) / (beforeData.reduce((s, d) => s + d.cpa, 0) / beforeData.length) * 100).toFixed(1),
+                isInverse: true
+            },
+            {
+                label: '成約数 (1日平均)',
+                before: (beforeData.reduce((s, d) => s + d.conversions, 0) / beforeData.length).toFixed(1),
+                after: (afterData.reduce((s, d) => s + d.conversions, 0) / afterData.length).toFixed(1),
+                change: (((afterData.reduce((s, d) => s + d.conversions, 0) / afterData.length) - (beforeData.reduce((s, d) => s + d.conversions, 0) / beforeData.length)) / (beforeData.reduce((s, d) => s + d.conversions, 0) / beforeData.length) * 100).toFixed(1),
+                isInverse: false
+            }
+        ]
+    };
+}
 
-    const rows = metrics.map(m => {
+function renderMeasureEffectSummary() {
+    const effectData = getMeasureEffectData();
+    if (!effectData) return '<p style="text-align:center;color:#64748b;padding:20px;">分析対象の施策データ、または比較可能な前後データが不足しています。</p>';
+
+    const rows = effectData.metrics.map(m => {
         const chg = parseFloat(m.change);
         const isGood = m.isInverse ? chg < 0 : chg > 0;
         return `
@@ -1685,7 +1698,7 @@ function renderMeasureEffectSummary() {
             </table>
         </div>
         <p style="margin-top:12px;font-size:0.75rem;color:#64748b;">
-            📌 最新の施策: <strong>${targetMeasure['対象']} (${targetMeasure['実施日']})</strong> を基準に分析
+            📌 基準施策: <strong>${effectData.measure.target} (${effectData.measure.date})</strong> を基準に、その前後期間を比較分析しています。
         </p>
     `;
 }
