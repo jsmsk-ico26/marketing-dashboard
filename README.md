@@ -25,8 +25,8 @@
 ### 1. ドメイン制限の設定
 `app.js` の冒頭にある `ALLOWED_DOMAINS` は現在以下のように設定されています。
 ```javascript
-// 貴社アカウント（@ico-ad.co.jp）のみログイン可能
-const ALLOWED_DOMAINS = ['ico-ad.co.jp']; 
+// 貴社アカウント（@gws.ico-ad.co.jp）のみログイン可能
+const ALLOWED_DOMAINS = ['gws.ico-ad.co.jp']; 
 ```
 これにより、部外者がGoogleアカウントを持っていても、ログイン時にエラーが表示されアクセスが拒否されます。
 

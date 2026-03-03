@@ -14,7 +14,7 @@ const MASTER_CLIENT_SHEET_ID = '1Zg9kByoLMidbe5i4FEGzgQPGExHTZYEeh6WouGaSINA';
 
 // Google ログイン設定
 const GOOGLE_CLIENT_ID = '726058308400-251vl121cbmsc305ju1m6e3a42f5gqv7.apps.googleusercontent.com';
-const ALLOWED_DOMAINS = ['ico-ad.co.jp']; // 自社ドメインのみに制限
+const ALLOWED_DOMAINS = ['gws.ico-ad.co.jp']; // 自社GWSドメインのみに制限
 
 // デモ用デフォルト顧客
 const DEFAULT_CLIENT = {
