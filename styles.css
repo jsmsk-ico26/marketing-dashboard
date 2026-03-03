@@ -1270,6 +1270,35 @@ body {
     background: rgba(99, 102, 241, 0.1);
 }
 
+.month-selector {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(51, 65, 85, 0.4);
+    color: #94a3b8;
+    border-radius: 8px;
+    padding: 6px 28px 6px 14px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+}
+
+.month-selector:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #c7d2fe;
+    background-color: rgba(99, 102, 241, 0.1);
+}
+
+.month-selector option {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
 /* --- 期間比較UI --- */
 .compare-period-selector {
     display: flex;

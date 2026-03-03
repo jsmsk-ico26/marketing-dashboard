@@ -1178,7 +1178,24 @@ function renderDateFilterPanel() {
                     <button class="date-preset-btn" onclick="setDatePreset('all')" id="preset-all">全期間</button>
                     <button class="date-preset-btn" onclick="setDatePreset('last7')" id="preset-7d">直近7日</button>
                     <button class="date-preset-btn" onclick="setDatePreset('last14')" id="preset-14d">直近14日</button>
-                    <button class="date-preset-btn" onclick="setDatePreset('last30')" id="preset-30d">直近30日</button>
+                    
+                    <select class="month-selector" onchange="setDatePreset('month', this.value)">
+                        <option value="">年月を選択</option>
+                        ${(() => {
+            const months = new Set();
+            AppState.mergedData.forEach(d => {
+                const dt = new Date(d.date.replace(/-/g, '/'));
+                if (!isNaN(dt.getTime())) {
+                    months.add(`${dt.getFullYear()}/${String(dt.getMonth() + 1).padStart(2, '0')}`);
+                }
+            });
+            return Array.from(months)
+                .sort((a, b) => b.localeCompare(a))
+                .slice(0, 13)
+                .map(m => `<option value="${m}">${m.replace('/', '年')}月</option>`)
+                .join('');
+        })()}
+                    </select>
                 </div>
             </div>
         </div>
@@ -1790,6 +1807,16 @@ function setDatePreset(preset) {
             AppState.dateFilter.isActive = true;
             AppState.dateFilter.startDate = `${startDate.getFullYear()}/${String(startDate.getMonth() + 1).padStart(2, '0')}/${String(startDate.getDate()).padStart(2, '0')}`;
             AppState.dateFilter.endDate = allData[allData.length - 1].date;
+            break;
+        case 'month':
+            if (!arguments[1]) return;
+            const [year, month] = arguments[1].split('/').map(Number);
+            const firstDay = new Date(year, month - 1, 1);
+            const lastDay = new Date(year, month, 0); // その月の末日
+
+            AppState.dateFilter.isActive = true;
+            AppState.dateFilter.startDate = `${year}/${String(month).padStart(2, '0')}/01`;
+            AppState.dateFilter.endDate = `${year}/${String(month).padStart(2, '0')}/${String(lastDay.getDate()).padStart(2, '0')}`;
             break;
     }
 
