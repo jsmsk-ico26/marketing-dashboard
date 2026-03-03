@@ -16,15 +16,6 @@ const MASTER_CLIENT_SHEET_ID = '1Zg9kByoLMidbe5i4FEGzgQPGExHTZYEeh6WouGaSINA';
 const GOOGLE_CLIENT_ID = '726058308400-251vl121cbmsc305ju1m6e3a42f5gqv7.apps.googleusercontent.com';
 const ALLOWED_DOMAINS = ['gws.ico-ad.co.jp']; // 自社GWSドメインのみに制限
 
-// デモ用デフォルト顧客
-const DEFAULT_CLIENT = {
-    id: 'demo-001',
-    name: 'デモ顧客',
-    siteName: 'サンプルLP',
-    spreadsheetId: '1EeYLn5_fYfjvaKK6aJJgyXfrCDr7DMvzVioW9MGWl60',
-    createdAt: '2026-03-01'
-};
-
 // アプリ状態管理
 const AppState = {
     isAuthenticated: false,
@@ -108,11 +99,6 @@ async function loadClients() {
     });
 
     AppState.clients = allClients;
-
-    // デフォルト顧客がなければ追加
-    if (!AppState.clients.find(c => c.spreadsheetId === DEFAULT_CLIENT.spreadsheetId)) {
-        AppState.clients.unshift(DEFAULT_CLIENT);
-    }
 
     // アクティブ顧客を復元
     const savedActive = localStorage.getItem(STORAGE_KEY_ACTIVE);
@@ -1039,20 +1025,6 @@ function handleCredentialResponse(response) {
     }
 }
 
-async function handleLogin() {
-    // デモモード（開発・確認用）
-    AppState.isAuthenticated = true;
-    AppState.user = {
-        name: 'デモユーザー',
-        email: 'demo@example.com',
-        avatar: 'D',
-        officeId: 'OFFICE-001'
-    };
-    await loadClients();
-    renderApp();
-    fetchSheetData();
-}
-
 function handleLogout() {
     if (typeof google !== 'undefined') {
         google.accounts.id.disableAutoSelect();
@@ -1122,15 +1094,6 @@ function renderLoginScreen() {
                     <!-- Googleボタンがここに自動生成されます -->
                 </div>
 
-                <div style="margin: 24px 0; display: flex; align-items: center; color: #64748b; font-size: 0.8rem;">
-                    <hr style="flex: 1; border: 0; border-top: 1px solid #334155; margin-right: 12px;">
-                    OR
-                    <hr style="flex: 1; border: 0; border-top: 1px solid #334155; margin-left: 12px;">
-                </div>
-
-                <button class="demo-btn" onclick="handleLogin()" id="btn-demo-login">
-                    デモモードで試す（ログイン不要）
-                </button>
                 <p style="margin-top: 24px; font-size: 0.7rem; color: #475569;">
                     自社のアカウント（Google Workspace）のみアクセス可能です
                 </p>
