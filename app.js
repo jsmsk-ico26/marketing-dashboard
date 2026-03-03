@@ -563,10 +563,13 @@ function generateInsights() {
     const safeNum = (val) => (typeof val === 'number' && !isNaN(val)) ? val : 0;
 
     // 1. 期間内の施策を特定
-    const start = new Date(AppState.dateFilter.startDate);
-    const end = new Date(AppState.dateFilter.endDate);
+    const sDate = (AppState.dateFilter.startDate || '').replace(/\//g, '-');
+    const eDate = (AppState.dateFilter.endDate || '').replace(/\//g, '-');
+    const start = sDate ? new Date(sDate) : new Date();
+    const end = eDate ? new Date(eDate) : new Date();
+
     const measureInRange = [...AppState.data.measures].filter(m => {
-        const d = new Date(m['実施日']);
+        const d = new Date((m['実施日'] || '').replace(/\//g, '-'));
         return d >= start && d <= end;
     }).sort((a, b) => new Date(b['実施日']) - new Date(a['実施日']))[0];
 
@@ -598,29 +601,31 @@ function generateInsights() {
         }
     }
 
+    const mNow = calculatePeriodMetrics(data);
+
     // 2. 期間比較分析 (PoP)
     const periodDays = data.length;
+
     const prevStart = new Date(start);
     prevStart.setDate(prevStart.getDate() - periodDays);
     const prevEnd = new Date(start);
     prevEnd.setDate(prevEnd.getDate() - 1);
 
     const prevData = AppState.mergedData.filter(d => {
-        const dt = new Date(d.date);
+        const dt = new Date(d.date.replace(/\//g, '-'));
         return dt >= prevStart && dt <= prevEnd;
     });
 
     if (prevData.length > 0) {
-        const mCurr = calculatePeriodMetrics(data);
         const mPrev = calculatePeriodMetrics(prevData);
-        const diff = calculatePeriodDiff(mPrev, mCurr);
+        const diff = calculatePeriodDiff(mPrev, mNow);
 
         insights.push({
             type: 'fact',
             title: `📈 前期間比分析 (${periodDays}日前比)`,
             content: `現在の期間 (${periodDays}日間) とその前期間を比較すると、セッション数は <strong>${diff.sessions > 0 ? '+' : ''}${diff.sessions}%</strong>、
             CVRは <strong>${diff.cvr > 0 ? '+' : ''}${diff.cvr}%</strong> となりました。
-            結果として、1日平均の成約数は ${mPrev.avgConversionsPerDay}件から${mCurr.avgConversionsPerDay}件へ推移しています。`
+            結果として、1日平均の成約数は ${mPrev.avgConversionsPerDay}件から${mNow.avgConversionsPerDay}件へ推移しています。`
         });
 
         const isGood = diff.cvr > 0 && diff.cpa < 0;
@@ -631,10 +636,18 @@ function generateInsights() {
                 `全体として<strong>非常に良好な推移</strong>です。流入数と質のバランスが最適化されており、獲得効率が高い水準で安定しています。` :
                 `一部の指標において改善の余地があります。${diff.cvr < 0 ? '流入は増えていますが成約率が低下しており、ターゲット層のズレが発生している可能性があります。' : '効率は維持されていますが、さらなるスケールには流入数の底上げが必要です。'}`
         });
+    } else {
+        // 前期間がない場合の現状分析
+        insights.push({
+            type: 'fact',
+            title: '📊 現状分析 (Current Facts)',
+            content: `選択された期間 (${periodDays}日間) において、
+            平均CVR <strong>${mNow.avgCVR}%</strong>、平均CPA <strong>¥${mNow.avgCPA.toLocaleString()}</strong> を記録しています。
+            期間中の広告宣伝費は合計 ¥${mNow.totalCost.toLocaleString()} です。`
+        });
     }
 
     // 3. Action (常に生成)
-    const mNow = calculatePeriodMetrics(data);
     insights.push({
         type: 'action',
         title: '🎯 次の一手 (Action)',
@@ -1661,7 +1674,7 @@ function renderMeasureEffectSummary() {
             </table>
         </div>
         <p style="margin-top:12px;font-size:0.75rem;color:#64748b;">
-            📌 最新の施策: <strong>${latestMeasure['対象']} (${latestMeasure['実施日']})</strong> を基準に分析
+            📌 最新の施策: <strong>${targetMeasure['対象']} (${targetMeasure['実施日']})</strong> を基準に分析
         </p>
     `;
 }
