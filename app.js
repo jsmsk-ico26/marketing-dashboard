@@ -1145,7 +1145,15 @@ function renderDashboard() {
  */
 function renderDateFilterPanel() {
     // 日付をinput[type=date]用のyyyy-mm-dd形式に変換
-    const toInputDate = (d) => d ? d.replace(/\//g, '-') : '';
+    const toInputDate = (dStr) => {
+        if (!dStr) return '';
+        const d = new Date(dStr.replace(/-/g, '/'));
+        if (isNaN(d.getTime())) return '';
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const r = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${r}`;
+    };
     const minDate = AppState.mergedData.length > 0 ? toInputDate(AppState.mergedData[0].date) : '';
     const maxDate = AppState.mergedData.length > 0 ? toInputDate(AppState.mergedData[AppState.mergedData.length - 1].date) : '';
 
@@ -1496,7 +1504,15 @@ function renderFooter() {
 // ===================================
 
 function renderCompareTab() {
-    const toInputDate = (d) => d ? d.replace(/\//g, '-') : '';
+    const toInputDate = (dStr) => {
+        if (!dStr) return '';
+        const d = new Date(dStr.replace(/-/g, '/'));
+        if (isNaN(d.getTime())) return '';
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const r = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${r}`;
+    };
     const minDate = AppState.mergedData.length > 0 ? toInputDate(AppState.mergedData[0].date) : '';
     const maxDate = AppState.mergedData.length > 0 ? toInputDate(AppState.mergedData[AppState.mergedData.length - 1].date) : '';
 
@@ -1505,13 +1521,22 @@ function renderCompareTab() {
     // 比較データの計算
     let comparisonHTML = '';
     if (cm.periodA.start && cm.periodA.end && cm.periodB.start && cm.periodB.end) {
+        const parse = (s) => s ? new Date(s.replace(/-/g, '/')) : null;
+        const startA = parse(cm.periodA.start);
+        const endA = parse(cm.periodA.end);
+        if (endA) endA.setHours(23, 59, 59, 999);
+
+        const startB = parse(cm.periodB.start);
+        const endB = parse(cm.periodB.end);
+        if (endB) endB.setHours(23, 59, 59, 999);
+
         const dataA = AppState.mergedData.filter(d => {
-            const dt = new Date(d.date);
-            return dt >= new Date(cm.periodA.start) && dt <= new Date(cm.periodA.end + 'T23:59:59');
+            const dt = new Date(d.date.replace(/-/g, '/'));
+            return dt >= startA && dt <= endA;
         });
         const dataB = AppState.mergedData.filter(d => {
-            const dt = new Date(d.date);
-            return dt >= new Date(cm.periodB.start) && dt <= new Date(cm.periodB.end + 'T23:59:59');
+            const dt = new Date(d.date.replace(/-/g, '/'));
+            return dt >= startB && dt <= endB;
         });
 
         const metricsA = calculatePeriodMetrics(dataA);
