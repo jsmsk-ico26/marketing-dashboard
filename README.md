@@ -76,6 +76,7 @@ GitHub PagesのURLが確定したら、Google Cloud Consoleの「承認済みの
 ---
 
 ## 📘 関連マニュアル
+- [開発・運用覚書（将来の拡張プラン）](DEVELOPER_NOTES.md) ※修正履歴・アイデア用
 - [ダッシュボード ユーザーガイド](USER_GUIDE.md) ※日常の使い方はこちら
 - [GA4自動更新 設定ガイド](GA4_SETUP.md)
 - [広告費自動化・運用ガイド](AD_AUTOMATION.md)
